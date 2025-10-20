@@ -1,0 +1,92 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="gps_world">
+
+    <!-- basic helpers -->
+    <include>
+      <uri>model://sun</uri>
+    </include>
+
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <!-- A simple model that carries a GPS sensor -->
+    <model name="gps_robot">
+      <pose>0 0 0 0 0 0</pose>
+      <static>false</static>
+
+      <link name="base_link">
+        <pose>0 0 0.2 0 0 0</pose>
+
+        <!-- inertial (small, ok for simulation) -->
+        <inertial>
+          <mass>1.0</mass>
+          <inertia>
+            <ixx>0.01</ixx><iyy>0.01</iyy><izz>0.01</izz>
+            <ixy>0</ixy><ixz>0</ixz><iyz>0</iyz>
+          </inertia>
+        </inertial>
+
+        <!-- Visual element so you can see it -->
+        <visual name="body_visual">
+          <geometry>
+            <box>
+              <size>0.2 0.2 0.05</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.2 0.6 0.9 1</ambient>
+            <diffuse>0.2 0.6 0.9 1</diffuse>
+          </material>
+        </visual>
+
+        <!-- Collision (optional) -->
+        <collision name="body_collision">
+          <geometry>
+            <box>
+              <size>0.2 0.2 0.05</size>
+            </box>
+          </geometry>
+        </collision>
+
+        <!-- GPS sensor attached to this link -->
+        <sensor name="gps_sensor" type="gps">
+          <always_on>1</always_on>
+          <update_rate>5.0</update_rate> <!-- Hz -->
+          <pose>0 0 0.15 0 0 0</pose>
+
+          <gps>
+            <!-- enable position and velocity readings -->
+            <position_sensing>true</position_sensing>
+            <velocity_sensing>true</velocity_sensing>
+
+            <!-- noise settings (mean 0, standard deviation in meters) -->
+            <horizontal_position_stddev>1.5</horizontal_position_stddev>
+            <vertical_position_stddev>2.0</vertical_position_stddev>
+            <velocity_stddev>0.2</velocity_stddev>
+          </gps>
+
+          <!-- Example: builtin Gazebo plugin that prints/publishes sensor data.
+               On many Gazebo installs the plugin library is libgazebo_gps_plugin.so.
+               If you are using ROS/ros_gazebo integrations, replace with the appropriate
+               gazebo_ros_gps plugin provided by your ROS integration. -->
+          <plugin name="gazebo_gps_plugin" filename="libgazebo_gps_plugin.so">
+            <!-- topic name that the plugin will publish to (plugin-dependent) -->
+            <topicName>/gps</topicName>
+            <!-- frame name used in messages -->
+            <frameName>gps_link</frameName>
+            <!-- optional: advertise as navsatfix-like structure depending on plugin -->
+          </plugin>
+        </sensor>
+
+      </link>
+    </model>
+
+    <!-- Optional: a few lights or world parameters can go here -->
+    <physics type="ode">
+      <gravity>0 0 -9.81</gravity>
+    </physics>
+
+  </world>
+</sdf>
