@@ -1,6 +1,6 @@
 /*
- * Gazebo Camera to ZMQ Publisher
- * Subscribes to Gazebo camera image topic and publishes via ZMQ
+ * Gazebo Camera to ZMQ Publisher with MsgPack
+ * Subscribes to Gazebo camera image topic and publishes via ZMQ using msgpack
  */
 
 #include <gazebo/transport/transport.hh>
@@ -8,12 +8,18 @@
 #include <gazebo/gazebo_client.hh>
 #include <zmq.hpp>
 #include <opencv2/opencv.hpp>
+#include <msgpack.hpp>
 #include <iostream>
 #include <cstring>
+#include <map>
+#include <vector>
 
 // Global ZMQ publisher
 zmq::context_t g_context(1);
 zmq::socket_t g_publisher(g_context, zmq::socket_type::pub);
+
+// Global msgpack topic name - needs to be accessible from callback function
+std::string g_msgpack_topic = "camera/image";
 
 /////////////////////////////////////////////////
 // Callback function called when image is received
@@ -62,25 +68,46 @@ void onImageMsg(ConstImageStampedPtr &_msg)
         return;
     }
     
-    // Publish via ZMQ (same protocol as pub_img.cpp)
+    // Publish via ZMQ using msgpack
     int rows = img.rows;
     int cols = img.cols;
     int type = img.type();
-    size_t data_size = img.total() * img.elemSize();
     
-    // Send metadata first
-    zmq::message_t meta_msg(sizeof(int) * 3);
-    std::memcpy(meta_msg.data(), &rows, sizeof(int));
-    std::memcpy((char*)meta_msg.data() + sizeof(int), &cols, sizeof(int));
-    std::memcpy((char*)meta_msg.data() + 2 * sizeof(int), &type, sizeof(int));
-    g_publisher.send(meta_msg, zmq::send_flags::sndmore);
+    // Convert image data to vector for msgpack
+    std::vector<unsigned char> img_data(img.data, img.data + img.total() * img.elemSize());
     
-    // Send image buffer as second part
-    zmq::message_t img_msg(data_size);
-    std::memcpy(img_msg.data(), img.data, data_size);
-    g_publisher.send(img_msg, zmq::send_flags::none);
+    // Create msgpack buffer with image data
+    msgpack::sbuffer sbuf;
+    msgpack::packer<msgpack::sbuffer> pk(&sbuf);
     
-    std::cout << "Published frame via ZMQ: " << rows << "x" << cols << std::endl;
+    // Pack as a map with topic and data
+    pk.pack_map(5);
+    
+    // Topic name
+    pk.pack(std::string("topic"));
+    pk.pack(g_msgpack_topic);
+    
+    // Image dimensions
+    pk.pack(std::string("rows"));
+    pk.pack(rows);
+    
+    pk.pack(std::string("cols"));
+    pk.pack(cols);
+    
+    pk.pack(std::string("type"));
+    pk.pack(type);
+    
+    // Image data
+    pk.pack(std::string("data"));
+    pk.pack(img_data);
+    
+    // Send msgpack buffer via ZMQ
+    zmq::message_t zmq_msg(sbuf.size());
+    std::memcpy(zmq_msg.data(), sbuf.data(), sbuf.size());
+    g_publisher.send(zmq_msg, zmq::send_flags::none);
+    
+    std::cout << "Published frame via ZMQ (msgpack): " << rows << "x" << cols 
+              << " topic: " << g_msgpack_topic << std::endl;
 }
 
 /////////////////////////////////////////////////
@@ -96,11 +123,21 @@ int main(int _argc, char **_argv)
     if (_argc > 2) {
         zmq_address = _argv[2];
     }
+    if (_argc > 3) {
+        g_msgpack_topic = _argv[3];
+    }
     
-    std::cout << "Camera2ZMQ Publisher\n";
-    std::cout << "===================\n";
+    std::cout << "Camera2ZMQ Publisher (MsgPack)\n";
+    std::cout << "==============================\n";
     std::cout << "Gazebo topic: " << camera_topic << "\n";
-    std::cout << "ZMQ address: " << zmq_address << "\n\n";
+    std::cout << "ZMQ address: " << zmq_address << "\n";
+    std::cout << "MsgPack topic: " << g_msgpack_topic << "\n\n";
+    
+    std::cout << "Usage: " << _argv[0] << " [gazebo_topic] [zmq_address] [msgpack_topic]\n";
+    std::cout << "Defaults:\n";
+    std::cout << "  gazebo_topic: /gazebo/default/iris_demo/iris_demo/gimbal_small_2d/tilt_link/camera/image\n";
+    std::cout << "  zmq_address: tcp://*:5556\n";
+    std::cout << "  msgpack_topic: camera/image\n\n";
     
     // Setup ZMQ publisher
     g_publisher.bind(zmq_address);

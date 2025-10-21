@@ -5,6 +5,7 @@ find_package(gazebo REQUIRED)
 find_package(TBB REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(PkgConfig REQUIRED)
+# msgpack is header-only, no find_package needed
 
 pkg_check_modules(ZMQ REQUIRED libzmq)
 
@@ -12,12 +13,7 @@ include_directories(${GAZEBO_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${ZMQ_INCLUDE_
 link_directories(${GAZEBO_LIBRARY_DIRS})
 list(APPEND CMAKE_CXX_FLAGS "${GAZEBO_CXX_FLAGS}")
 
-add_executable(listener listener.cpp)
-target_link_libraries(listener ${GAZEBO_LIBRARIES} TBB::tbb)
-
-add_executable(gps2zmq gps2zmq.cpp)
-target_link_libraries(gps2zmq ${GAZEBO_LIBRARIES} TBB::tbb)
-
+# camera2zmq - Gazebo camera to ZMQ with msgpack
 add_executable(camera2zmq camera2zmq.cpp)
 target_link_libraries(camera2zmq ${GAZEBO_LIBRARIES} TBB::tbb ${OpenCV_LIBRARIES} ${ZMQ_LIBRARIES})
 
