@@ -1,0 +1,17 @@
+param set ARMING_CHECK 0
+arm throttle
+mode guided
+takeoff 3 # 3 meters
+MAV> rc 1 1500   # roll
+MAV> rc 2 1500   # pitch
+MAV> rc 3 1600   # throttle
+MAV> rc 4 1500   # yaw
+
+# Install APT packages
+sudo apt-get update
+sudo apt-get install -y python3-zmq python3-opencv python3-numpy python3-pip
+
+# Install PIP packages
+pip3 install pymavlink
+
+gazebo --verbose 

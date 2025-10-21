@@ -6,10 +6,10 @@
 int main() {
     zmq::context_t context(1);
     zmq::socket_t subscriber(context, zmq::socket_type::sub);
-    subscriber.connect("tcp://localhost:5555");
+    subscriber.connect("tcp://localhost:5556");
     subscriber.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
-    std::cout << "Subscriber listening on tcp://localhost:5555\n";
+    std::cout << "Subscriber listening on tcp://localhost:5556\n";
 
     while (true) {
         zmq::message_t meta_msg;
