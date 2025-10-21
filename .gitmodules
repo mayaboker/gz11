@@ -1,0 +1,4 @@
+[submodule "ardupilot_gazebo"]
+	path = src/ardupilot_gazebo
+	url = http://192.168.1.6/ae/ardupilot_gazebo.git
+	branch = gz11-here

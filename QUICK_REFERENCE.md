@@ -2,6 +2,22 @@
 
 ## Essential Commands
 
+### New computer
+
+On the host:
+
+```bash
+xhost +
+```
+
+### New container
+
+Inside the container before running anything... 
+
+```bash
+ln -s .bash_aliases ~/.bash_aliases
+```
+
 ### Start Services
 
 ```bash
