@@ -68,45 +68,38 @@ void onImageMsg(ConstImageStampedPtr &_msg)
         return;
     }
     
-    // Publish via ZMQ using msgpack
-    int rows = img.rows;
-    int cols = img.cols;
-    int type = img.type();
+    // Convert to grayscale if not already grayscale, then back to 3-channel BGR
+    // This matches the Python code: BGR -> GRAY -> BGR
+    if (img.channels() == 3) {
+        cv::cvtColor(img, img, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
+        std::cout << "Converted to grayscale (3-channel)" << std::endl;
+    } else if (img.channels() == 1) {
+        // If already grayscale, convert to 3-channel BGR
+        cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
+        std::cout << "Converted grayscale to 3-channel BGR" << std::endl;
+    }
     
-    // Convert image data to vector for msgpack
-    std::vector<unsigned char> img_data(img.data, img.data + img.total() * img.elemSize());
+    // Convert frame to bytes (matching Python's frame.tobytes())
+    std::vector<unsigned char> frame_bytes(img.data, img.data + img.total() * img.elemSize());
     
-    // Create msgpack buffer with image data
+    // Pack with msgpack (matching Python's msgpack.packb(frame))
     msgpack::sbuffer sbuf;
     msgpack::packer<msgpack::sbuffer> pk(&sbuf);
+    pk.pack(frame_bytes);
     
-    // Pack as a map with topic and data
-    pk.pack_map(5);
+    // Send as ZMQ multipart message: (TOPIC, data)
+    // Matching Python's socket.send_multipart((TOPIC, data))
+    zmq::message_t topic_msg(g_msgpack_topic.size());
+    std::memcpy(topic_msg.data(), g_msgpack_topic.c_str(), g_msgpack_topic.size());
     
-    // Topic name
-    pk.pack(std::string("topic"));
-    pk.pack(g_msgpack_topic);
+    zmq::message_t data_msg(sbuf.size());
+    std::memcpy(data_msg.data(), sbuf.data(), sbuf.size());
     
-    // Image dimensions
-    pk.pack(std::string("rows"));
-    pk.pack(rows);
+    g_publisher.send(topic_msg, zmq::send_flags::sndmore);
+    g_publisher.send(data_msg, zmq::send_flags::none);
     
-    pk.pack(std::string("cols"));
-    pk.pack(cols);
-    
-    pk.pack(std::string("type"));
-    pk.pack(type);
-    
-    // Image data
-    pk.pack(std::string("data"));
-    pk.pack(img_data);
-    
-    // Send msgpack buffer via ZMQ
-    zmq::message_t zmq_msg(sbuf.size());
-    std::memcpy(zmq_msg.data(), sbuf.data(), sbuf.size());
-    g_publisher.send(zmq_msg, zmq::send_flags::none);
-    
-    std::cout << "Published frame via ZMQ (msgpack): " << rows << "x" << cols 
+    std::cout << "Published frame via ZMQ multipart: " << img.rows << "x" << img.cols 
               << " topic: " << g_msgpack_topic << std::endl;
 }
 
