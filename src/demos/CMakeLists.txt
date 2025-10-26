@@ -33,10 +33,6 @@ add_executable(sub_img_msgpack sub_img_msgpack.cpp)
 target_include_directories(sub_img_msgpack PRIVATE ${ZMQ_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${MSGPACK_INCLUDE_DIRS})
 target_link_libraries(sub_img_msgpack PRIVATE ${ZMQ_LIBRARIES} Threads::Threads ${OpenCV_LIBRARIES})
 
-add_executable(sub_img_multipart sub_img_multipart.cpp)
-target_include_directories(sub_img_multipart PRIVATE ${ZMQ_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${MSGPACK_INCLUDE_DIRS})
-target_link_libraries(sub_img_multipart PRIVATE ${ZMQ_LIBRARIES} Threads::Threads ${OpenCV_LIBRARIES})
-
 add_executable(pub_msg pub_msg.cpp)
 target_include_directories(pub_msg PRIVATE ${ZMQ_INCLUDE_DIRS}  ${MSGPACK_INCLUDE_DIRS})
 target_link_libraries(pub_msg PRIVATE ${ZMQ_LIBRARIES})

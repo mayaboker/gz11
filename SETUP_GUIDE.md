@@ -67,12 +67,12 @@ sudo apt-get install -y python3-zmq python3-opencv python3-numpy
 # Python package manager
 sudo apt-get install -y python3-pip
 
-# MsgPack (already installed)
+# MsgPack (C++ library, already installed)
 # libmsgpack-dev
 ```
 
 **Packages installed:**
-- `python3-zmq` - Python ZMQ bindings
+- `python3-zmq` - Python ZMQ bindings (pyzmq)
 - `python3-opencv` - OpenCV for Python
 - `python3-numpy` - NumPy arrays
 - `python3-pip` - Python package manager
@@ -81,11 +81,16 @@ sudo apt-get install -y python3-pip
 ### Via PIP (pip3)
 
 ```bash
+# MAVLink for drone communication
 pip3 install pymavlink
+
+# MsgPack for Python (serialization)
+pip3 install msgpack
 ```
 
 **Packages installed:**
 - `pymavlink==2.4.49` - MAVLink communication library
+- `msgpack` - MessagePack serialization for Python
 - `lxml`, `fastcrc` (dependencies)
 
 ### Quick Reinstall Commands
@@ -94,7 +99,7 @@ pip3 install pymavlink
 # Install all dependencies
 sudo apt-get update
 sudo apt-get install -y python3-zmq python3-opencv python3-numpy python3-pip libmsgpack-dev
-pip3 install pymavlink
+pip3 install pymavlink msgpack
 ```
 
 ---
@@ -373,7 +378,7 @@ sim_vehicle.py -v ArduCopter -f gazebo-iris --console --map
 ### 4. View Camera Feed
 ```bash
 # Python viewer
-python3 /workspace/test_camera_msgpack.py
+python3 /workspace/src/test/test_camera_msgpack.py
 
 # OR C++ viewer
 /workspace/src/demos/build/sub_img_msgpack
@@ -382,7 +387,7 @@ python3 /workspace/test_camera_msgpack.py
 ### 5. Control Gimbal (Optional) - doesn't work
 ```bash
 # Terminal 1: Start bridge
-python3 /workspace/gimbal_bridge.py
+python3 /workspace/src/test/gimbal_bridge.py
 
 # Terminal 2 (MAVProxy): Control gimbal
 MAV> long DO_MOUNT_CONTROL -90 0 0 0 0 0 2
@@ -390,7 +395,7 @@ MAV> long DO_MOUNT_CONTROL -90 0 0 0 0 0 2
 
 ### 6. Run Autonomous Flight (Optional)
 ```bash
-python3 /workspace/fly_to_100m.py
+python3 /workspace/src/test/fly_to_100m.py
 ```
 
 ---

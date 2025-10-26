@@ -36,23 +36,29 @@ def main():
     
     try:
         while True:
-            # Receive multipart message: (TOPIC, data)
-            topic, data = socket.recv_multipart()
+            # Receive multipart message: [topic, data]
+            parts = socket.recv_multipart()
             
-            print(f"Received message from topic: {topic}")
+            if len(parts) < 2:
+                print("ERROR: Expected 2 parts but got", len(parts))
+                continue
             
-            # Check if it's our expected topic
-            if topic != EXPECTED_TOPIC:
-                print(f"Warning: Unexpected topic. Got '{topic}', expected '{EXPECTED_TOPIC}'")
+            # Extract the data part (second element)
+            # parts[0] is the topic, parts[1] is the msgpack data
+            data = parts[1]
             
             # Unpack msgpack data
-            frame_bytes = msgpack.unpackb(data, raw=False)
+            try:
+                # Use Unpacker to handle the msgpack stream properly
+                unpacker = msgpack.Unpacker(raw=False)
+                unpacker.feed(data)
+                frame_bytes = next(unpacker)
+            except Exception as e:
+                print(f"Msgpack unpack error: {e}")
+                continue
             
-            # Convert to numpy array
-            frame_array = np.array(frame_bytes, dtype=np.uint8)
-            
-            print(f"Frame bytes length: {len(frame_bytes)}")
-            print(f"Frame array shape after unpack: {frame_array.shape}")
+            # Convert bytes to numpy array
+            frame_array = np.frombuffer(frame_bytes, dtype=np.uint8)
             
             # We need to know the image dimensions to reshape
             # Assuming 640x480 from the Gazebo camera (3 channels BGR)
@@ -66,15 +72,12 @@ def main():
                 # Reshape to (height, width, channels)
                 frame = frame_array.reshape((HEIGHT, WIDTH, CHANNELS))
                 
-                print(f"Reshaped to: {frame.shape}")
-                print(f"Frame type: {frame.dtype}")
-                
                 # Display the frame
                 cv2.imshow('Camera Feed (New Format)', frame)
                 
                 frame_count += 1
-                print(f"✓ Frame #{frame_count} received and displayed")
-                print("-" * 50)
+                if frame_count % 30 == 0:  # Print every 30 frames (~1 second at 30fps)
+                    print(f"✓ Received {frame_count} frames")
                 
                 # Wait 1ms for key press (required for cv2.imshow to work)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -82,8 +85,6 @@ def main():
                     break
             else:
                 print(f"Error: Unexpected frame size. Got {len(frame_array)}, expected {expected_size}")
-                print("Cannot reshape and display")
-                print("-" * 50)
     
     except KeyboardInterrupt:
         print("\n\nInterrupted by user")
