@@ -15,7 +15,24 @@ xhost +
 Inside the container before running anything... 
 
 ```bash
-ln -s .bash_aliases ~/.bash_aliases
+ln -s /workspace/.bash_aliases ~/.bash_aliases
+```
+
+### Fast test
+```bash
+pip install -r requirements.txt
+```
+
+```bash
+gazebo --verbose /workspace/src/ardupilot_gazebo/worlds/iris_arducopter_runway.world
+```
+
+```bash
+/workspace/src/build/camera2zmq /gazebo/default/iris_demo/iris_demo/gimbal_small_2d/tilt_link/camera/image tcp://*:5567 camera/image
+```
+
+```bash
+python3 /workspace/src/test/test_camera_msgpack.py
 ```
 
 ### Start Services

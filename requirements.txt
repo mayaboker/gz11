@@ -1,2 +1,4 @@
 msgpack
 pyzmq
+numpy
+opencv-python

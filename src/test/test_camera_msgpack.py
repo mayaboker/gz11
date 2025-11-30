@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Test script to receive camera images via ZMQ with msgpack
+Receives multipart messages: [topic, msgpack-encoded-bytes]
 """
 import zmq
 import msgpack
@@ -10,7 +11,7 @@ import cv2
 # Connect to ZMQ
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
-socket.connect("tcp://localhost:5556")
+socket.connect("tcp://localhost:5567")
 socket.setsockopt(zmq.SUBSCRIBE, b"")
 
 print("Listening for camera images via ZMQ (msgpack format)")
@@ -20,44 +21,52 @@ frame_count = 0
 
 while True:
     try:
-        # Receive msgpack message
-        msg_bytes = socket.recv()
+        # Receive multipart message: [topic, frame_bytes]
+        topic_msg = socket.recv()
+        frame_msg = socket.recv()
         
-        # Debug: print first 100 bytes
-        # print(f"Received {len(msg_bytes)} bytes: {msg_bytes[:100]}")
+        topic = topic_msg.decode('utf-8')
         
-        # Unpack msgpack - use raw=True to keep bytes as bytes
-        data = msgpack.unpackb(msg_bytes, raw=False, strict_map_key=False)
+        # Unpack msgpack - expecting raw byte array
+        frame_bytes = msgpack.unpackb(frame_msg, raw=False)
         
-        # Debug: print data keys and types
-        # print(f"Data keys: {data.keys()}")
-        # for k, v in data.items():
-        #     print(f"  {k}: type={type(v)}, len={len(v) if hasattr(v, '__len__') else 'N/A'}")
-        
-        # Extract data
-        topic = data['topic']
-        rows = int(data['rows'])
-        cols = int(data['cols'])
-        cv_type = int(data['type'])
-        img_data = data['data']
-        
-        # Convert to numpy array - handle both list and bytes
-        if isinstance(img_data, (list, tuple)):
-            img_array = np.array(img_data, dtype=np.uint8)
+        # Convert to numpy array
+        if isinstance(frame_bytes, (list, tuple)):
+            img_array = np.array(frame_bytes, dtype=np.uint8)
         else:
-            img_array = np.frombuffer(img_data, dtype=np.uint8)
+            img_array = np.frombuffer(frame_bytes, dtype=np.uint8)
         
-        # Reshape based on type
-        if cv_type == 16:  # CV_8UC3 (3 channels)
+        # Frames are sent as BGR or grayscale 3-channel BGR
+        # Determine shape - assuming frames are reshaped by the sender
+        # The sender converts to 3-channel BGR, so we need to figure out dimensions
+        total_pixels = len(img_array) // 3  # Assuming 3 channels (BGR)
+        
+        # Common camera sizes: 640x480, 320x240, etc.
+        # Try to infer dimensions (aspect ratio ~4:3 or similar)
+        # For now, assume standard dimensions or use a fallback
+        
+        # Better approach: the image dimensions should be consistent with Gazebo camera
+        # Default is typically 640x480 for Gazebo cameras
+        rows, cols = 480, 640
+        
+        # Reshape to (rows, cols, 3) for BGR image
+        if len(img_array) == rows * cols * 3:
             img = img_array.reshape(rows, cols, 3)
-        elif cv_type == 0:  # CV_8UC1 (1 channel grayscale)
-            img = img_array.reshape(rows, cols)
         else:
-            print(f"Unknown type: {cv_type}")
-            continue
+            # If size doesn't match, try to infer
+            print(f"Warning: Expected {rows * cols * 3} bytes, got {len(img_array)}")
+            # Try other common sizes
+            if len(img_array) == 640 * 480 * 3:
+                img = img_array.reshape(480, 640, 3)
+            elif len(img_array) == 320 * 240 * 3:
+                img = img_array.reshape(240, 320, 3)
+            else:
+                # Fallback: assume square-ish
+                side = int(np.sqrt(len(img_array) // 3))
+                img = img_array.reshape(side, side, 3)
         
         frame_count += 1
-        print(f"Frame {frame_count}: {rows}x{cols} topic='{topic}'")
+        print(f"Frame {frame_count}: {img.shape} topic='{topic}' size={len(frame_bytes)} bytes")
         
         # Display image
         cv2.imshow('Camera Feed (MsgPack)', img)
@@ -66,6 +75,9 @@ while True:
             
     except KeyboardInterrupt:
         break
+    except zmq.error.Again:
+        # Timeout, continue
+        continue
     except Exception as e:
         print(f"Error: {e}")
         import traceback

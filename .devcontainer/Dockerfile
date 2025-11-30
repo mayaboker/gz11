@@ -60,6 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lsb-release \
     curl \
     vim \
+    python3-pip \
   && rm -rf /var/lib/apt/lists/*
 
 # Add the OSRF GPG key to a new keyring directory
