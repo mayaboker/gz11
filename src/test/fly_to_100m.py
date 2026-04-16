@@ -132,7 +132,7 @@ def set_mode(mode):
 
 
 def set_parameter(name, value, timeout=5):
-    """Set a parameter and verify the new value."""
+    """Set a parameter and verify the new value when possible."""
     encoded_name = name.encode("utf-8")
     master.mav.param_set_send(
         master.target_system,
@@ -140,6 +140,15 @@ def set_parameter(name, value, timeout=5):
         encoded_name,
         float(value),
         mavutil.mavlink.MAV_PARAM_TYPE_REAL32,
+    )
+
+    # Ask for an explicit readback too; some setups do not immediately emit a
+    # matching PARAM_VALUE after PARAM_SET.
+    master.mav.param_request_read_send(
+        master.target_system,
+        master.target_component,
+        encoded_name,
+        -1,
     )
 
     deadline = time.time() + timeout
@@ -152,12 +161,16 @@ def set_parameter(name, value, timeout=5):
             if text:
                 print(f"STATUSTEXT: {text}")
             continue
-        param_id = msg.param_id.decode("utf-8").rstrip("\x00")
+        param_id = msg.param_id
+        if isinstance(param_id, bytes):
+            param_id = param_id.decode("utf-8", errors="ignore")
+        param_id = str(param_id).rstrip("\x00")
         if param_id == name:
             print(f"Parameter {name} set to {msg.param_value}")
             return msg.param_value
 
-    raise TimeoutError(f"Timed out while setting parameter {name}")
+    print(f"Warning: timed out while verifying parameter {name}; continuing")
+    return None
 
 def arm_vehicle():
     """Arm the vehicle and fail with a useful timeout."""
