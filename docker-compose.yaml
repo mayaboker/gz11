@@ -5,6 +5,7 @@ services:
       dockerfile: .devcontainer/Dockerfile
       # args:
       #   - BASE_IMAGE=gz11-gz:latest
+    image: gz11-gz:latest
     user: "user"
     volumes:
       - .:/workspace:cached
