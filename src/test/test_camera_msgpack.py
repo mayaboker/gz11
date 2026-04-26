@@ -11,10 +11,10 @@ import cv2
 # Connect to ZMQ
 context = zmq.Context()
 socket = context.socket(zmq.SUB)
-socket.connect("tcp://localhost:5561")
+socket.connect("tcp://127.0.0.1:5561")
 socket.setsockopt(zmq.SUBSCRIBE, b"")
 
-print("Listening for camera images via ZMQ (msgpack format) on tcp://localhost:5561")
+print("Listening for camera images via ZMQ (msgpack format) on tcp://127.0.0.1:5561")
 print("Press 'q' to quit\n")
 
 frame_count = 0

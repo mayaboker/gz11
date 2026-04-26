@@ -94,8 +94,10 @@ MAV> long DO_MOUNT_CONTROL -90 0 0 0 0 0 2  # Terminal 2
 
 ## Autonomous Flight
 
+This command should be run from the  host and not from the docker because there is no pymavlink installed in the docker:
+
 ```bash
-python3 /workspace/src/test/fly_to_100m.py
+python3 $PROJECT/test/fly_to_100m.py
 ```
 
 ```bash
