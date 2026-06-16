@@ -14,7 +14,7 @@ import zmq
 def parse_args():
     parser = argparse.ArgumentParser(description="View camera frames from camera2zmq.")
     parser.add_argument("--host", default="127.0.0.1", help="ZMQ publisher host")
-    parser.add_argument("--port", type=int, default=5556, help="ZMQ publisher port")
+    parser.add_argument("--port", type=int, default=5561, help="ZMQ publisher port")
     parser.add_argument("--topic", default="", help="Topic filter, empty subscribes to all")
     parser.add_argument("--width", type=int, default=640, help="Expected image width")
     parser.add_argument("--height", type=int, default=480, help="Expected image height")
@@ -23,7 +23,9 @@ def parse_args():
 
 def reshape_frame(frame_bytes, width, height):
     if isinstance(frame_bytes, (list, tuple)):
-        img_array = np.array(frame_bytes, dtype=np.uint8)
+        # MsgPack arrays may arrive as signed byte values, e.g. -4 for 252.
+        # Preserve the original byte pattern while accepting either form.
+        img_array = np.mod(np.asarray(frame_bytes, dtype=np.int16), 256).astype(np.uint8)
     else:
         img_array = np.frombuffer(frame_bytes, dtype=np.uint8)
 
@@ -65,7 +67,11 @@ def main():
             topic_msg, frame_msg = parts
             topic = topic_msg.decode("utf-8", errors="replace")
             frame_bytes = msgpack.unpackb(frame_msg, raw=False)
-            img = reshape_frame(frame_bytes, args.width, args.height)
+            try:
+                img = reshape_frame(frame_bytes, args.width, args.height)
+            except ValueError as ex:
+                print(f"Skipping non-image message on topic={topic!r}: {ex}")
+                continue
 
             frame_count += 1
             mean_abs_diff = None

@@ -169,7 +169,7 @@ make camera2zmq
 
 #### Python Subscriber (MsgPack)
 ```bash
-python3 /workspace/test_camera_msgpack.py
+python3 /workspace/src/test/test_camera_msgpack.py
 ```
 
 #### Old C++ Subscriber (Legacy format - NOT compatible with msgpack)
@@ -185,7 +185,7 @@ python3 /workspace/test_camera_msgpack.py
 Python script to autonomously arm, take off to 100m, hold for 5 minutes, and RTL (Return to Launch).
 
 ### Location
-`/workspace/fly_to_100m.py`
+`/workspace/src/test/fly_to_100m.py`
 
 ### Features
 - ✅ Connects to SITL via MAVLink (127.0.0.1:14550)
@@ -193,14 +193,31 @@ Python script to autonomously arm, take off to 100m, hold for 5 minutes, and RTL
 - ✅ Arms vehicle
 - ✅ Takes off to 100 meters
 - ✅ Holds position for 5 minutes with status updates
-- ✅ Returns to launch and lands
+- ✅ Returns to launch and lands, with a LAND fallback if RTL does not finish
 - ✅ Emergency RTL on Ctrl+C
 
 ### Usage
 
+Run ArduPilot SITL on the host:
+
 ```bash
-# Run the script
-python3 /workspace/fly_to_100m.py
+source /home/user/venv-ardupilot/activate
+cd ~/git/ardupilot
+./Tools/autotest/sim_vehicle.py -v ArduCopter -f gazebo-iris --console --map -w
+```
+
+Run the flight script from the host:
+
+```bash
+source /home/user/new/.venv/bin/activate
+cd ~/git/gz11
+python3 src/test/fly_to_100m.py
+```
+
+Useful shorter test:
+
+```bash
+python3 /workspace/src/test/fly_to_100m.py --altitude 20 --hold-seconds 60 --rtl-land-timeout 60
 ```
 
 ### Mission Sequence
@@ -347,14 +364,14 @@ gz model -m iris_demo -i
 
 | Script | Description | Location |
 |--------|-------------|----------|
-| fly_to_100m.py | Autonomous flight to 100m + RTL | `/workspace/sr/test/fly_to_100m.py` |
+| fly_to_100m.py | Autonomous flight to 100m + RTL | `/workspace/src/test/fly_to_100m.py` |
 | gimbal_bridge.py | MAVLink to Gazebo gimbal bridge | `/workspace/src/test/gimbal_bridge.py` |
 
 ### Utility Scripts - doesn't work
 
 | Script | Description | Location |
 |--------|-------------|----------|
-| tilt_camera.sh | Shell script to tilt camera | `/workspace/src/test/src/test/tilt_camera.sh` |
+| tilt_camera.sh | Shell script to tilt camera | `/workspace/src/test/tilt_camera.sh` |
 
 ---
 
@@ -367,7 +384,9 @@ gazebo --verbose /workspace/src/ardupilot_gazebo/worlds/iris_arducopter_runway.w
 
 ### 2. Start ArduPilot SITL (Optional)
 ```bash
-sim_vehicle.py -v ArduCopter -f gazebo-iris --console --map
+source /home/user/venv-ardupilot/activate
+cd ~/git/ardupilot
+./Tools/autotest/sim_vehicle.py -v ArduCopter -f gazebo-iris --console --map -w
 ```
 
 ### 3. Start Camera Publisher
@@ -395,8 +414,19 @@ MAV> long DO_MOUNT_CONTROL -90 0 0 0 0 0 2
 
 ### 6. Run Autonomous Flight (Optional)
 ```bash
-python3 /workspace/src/test/fly_to_100m.py
+source /home/user/new/.venv/bin/activate
+cd ~/git/gz11
+python3 src/test/fly_to_100m.py
 ```
+
+### 7. Run Wind Operator UI (Optional)
+```bash
+source /home/user/new/.venv/bin/activate
+cd ~/git/gz11
+python3 src/test/wind_operator_ui.py --listen-port 8090
+```
+
+Open `http://127.0.0.1:8090/`. Click `Send` after changing wind values. Use `Ramp start m = 0` and `Ramp end m = 0` to apply full wind immediately.
 
 ---
 

@@ -94,7 +94,23 @@ MAV> long DO_MOUNT_CONTROL -90 0 0 0 0 0 2  # Terminal 2
 
 ## Autonomous Flight
 
-This command should be run from the  host and not from the docker because there is no pymavlink installed in the docker:
+This command should be run from the host and not from Docker because there is no pymavlink installed in Docker:
+
+Host terminal 1, start ArduPilot SITL for the Iris Gazebo frame:
+
+```bash
+source /home/user/venv-ardupilot/activate
+cd ~/git/ardupilot
+./Tools/autotest/sim_vehicle.py -v ArduCopter -f gazebo-iris --console --map -w
+```
+
+Host terminal 2, run the autonomous flight script:
+
+```bash
+source /home/user/new/.venv/bin/activate
+cd ~/git/gz11
+python3 src/test/fly_to_100m.py
+```
 
 ```bash
 python3 $PROJECT/test/fly_to_100m.py
@@ -111,7 +127,7 @@ python3 /workspace/src/test/fly_to_100m.py --port 14550 --altitude 20 --hold-sec
 ```
 
 Notes:
-- `fly_to_100m.py` now accepts `--host`, `--port`, `--altitude`, and `--hold-seconds`
+- `fly_to_100m.py` now accepts `--host`, `--port`, `--altitude`, `--hold-seconds`, and `--rtl-land-timeout`
 - it waits for `GUIDED` mode to become active before arming
 - it prints `STATUSTEXT` / command ACK feedback while arming and taking off
 - if `ARMING_CHECK` readback times out, it warns and continues instead of aborting immediately
@@ -123,6 +139,48 @@ mode guided
 param set ARMING_CHECK 0
 arm throttle
 takeoff 3
+```
+
+
+## Wind Operator UI
+
+Start Gazebo first so `WindForcePlugin` is loaded:
+
+```bash
+gazebo --verbose /workspace/src/ardupilot_gazebo/worlds/iris_arducopter_runway.world
+```
+
+Run the operator UI from the host if you want to open it directly in the host browser:
+
+```bash
+source /home/user/new/.venv/bin/activate
+cd ~/git/gz11
+python3 src/test/wind_operator_ui.py --listen-port 8090
+```
+
+Open:
+
+```text
+http://127.0.0.1:8090/
+```
+
+Wind controls:
+- click `Send` after changing values; editing fields alone does not update Gazebo
+- `Repeat` resends the same command at the selected rate, such as `1 Hz`; it does not animate the altitude ramp
+- `Ramp start m` and `Ramp end m` are altitude thresholds, not time thresholds
+- use `Ramp start m = 0` and `Ramp end m = 0` to apply full wind immediately
+- default tuning values are `drag_coefficient = 1.1`, `reference_area = 0.12 m2`, and `max_force = 80 N`
+- `CdA = drag_coefficient x reference_area`
+- force is `0.5 x air_density x CdA x relative_speed^2`, clamped by `max_force`
+
+CLI alternatives:
+
+```bash
+# Send one wind command
+python3 /workspace/src/test/wind_controller.py --knots 20 --direction 90 --ramp-start-altitude 0 --ramp-end-altitude 0 --rate 0
+
+# Watch plugin status
+python3 /workspace/src/test/wind_status.py
 ```
 
 ## Pose Receiver

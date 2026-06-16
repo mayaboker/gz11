@@ -39,6 +39,12 @@ def parse_args():
         default=300,
         help="Time to hold position before RTL (default: 300)",
     )
+    parser.add_argument(
+        "--rtl-land-timeout",
+        type=int,
+        default=180,
+        help="Seconds to wait for RTL to land before switching to LAND (default: 180)",
+    )
     return parser.parse_args()
 
 
@@ -90,7 +96,7 @@ def ack_result_name(result):
     return entry.name if entry else str(result)
 
 
-def wait_command_ack(command, timeout=8, require_accepted=True):
+def wait_command_ack(command, timeout=8, require_accepted=False):
     deadline = time.time() + timeout
     while time.time() < deadline:
         msg = master.recv_match(type=["COMMAND_ACK", "STATUSTEXT"], blocking=True, timeout=1)
@@ -104,14 +110,16 @@ def wait_command_ack(command, timeout=8, require_accepted=True):
         if msg.command == command:
             result_name = ack_result_name(msg.result)
             print(f"ACK for command {command}: result={msg.result} ({result_name})")
-            if require_accepted and msg.result != mavutil.mavlink.MAV_RESULT_ACCEPTED:
-                raise RuntimeError(
-                    f"Command {command} was not accepted: {msg.result} ({result_name})"
-                )
+            if msg.result != mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                message = f"Command {command} ACK was {msg.result} ({result_name})"
+                if require_accepted:
+                    raise RuntimeError(message)
+                print(f"Warning: {message}; continuing")
             return msg
 
     if require_accepted:
         raise TimeoutError(f"Timed out waiting for ACK for command {command}")
+    print(f"Warning: timed out waiting for ACK for command {command}; continuing")
     return None
 
 
@@ -248,21 +256,33 @@ def wait_for_altitude(target_alt, tolerance=1.0, timeout=180):
         raise TimeoutError(f"Vehicle did not reach {target_alt}m within {timeout}s")
 
 def rtl():
-    """Return to Launch"""
+    """Return to Launch."""
     print("\nInitiating RTL (Return to Launch)...")
     set_mode("RTL")
-    
-def wait_for_landing():
-    """Wait until vehicle has landed"""
+
+
+def land():
+    """Command an immediate landing at the current position."""
+    print("\nRTL did not finish landing; switching to LAND...")
+    set_mode("LAND")
+
+def wait_for_landing(timeout=180, fallback_to_land=True):
+    """Wait until the vehicle lands, with a LAND fallback if RTL stalls."""
     print("Waiting for landing...")
 
+    deadline = time.time() + timeout
     while True:
         current_alt = get_altitude()
-        print(f"Current altitude: {current_alt:.1f}m")
+        armed = master.motors_armed()
+        print(f"Current relative altitude: {current_alt:.1f}m, armed={armed}")
 
-        if current_alt < 0.5:  # Close to ground
+        if not armed or current_alt < 0.5:
             print("Landed!")
-            break
+            return
+
+        if fallback_to_land and time.time() >= deadline:
+            land()
+            fallback_to_land = False
 
         time.sleep(2)
 
@@ -307,7 +327,7 @@ def main():
         rtl()
 
         # Wait for landing
-        wait_for_landing()
+        wait_for_landing(timeout=args.rtl_land_timeout)
 
         print("\nMission complete. Drone has returned and landed.")
 

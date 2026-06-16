@@ -8,6 +8,7 @@ Related files:
 - `src/ardupilot_gazebo/models/iris_with_ardupilot/model.sdf`
 - `src/test/wind_controller.py`
 - `src/test/wind_status.py`
+- `src/test/wind_operator_ui.py`
 
 ## 1. What The Plugin Does
 
@@ -84,7 +85,7 @@ src/test/wind_status.py
 
 The control channel changes the simulated wind.
 
-The status channel lets you see what the plugin thinks it is doing.
+The status channel lets you see what the plugin thinks it is doing. The browser UI in `src/test/wind_operator_ui.py` uses both channels: it sends commands on the control channel and reads live status from the status channel.
 
 ## 4. Startup Flow
 
@@ -385,7 +386,55 @@ If `target_wind_knots` is nonzero but `actual_wind_knots` is low, the drone may 
 
 If `actual_wind_knots` is nonzero but `force_n` is zero, the relative wind may be nearly zero or something is wrong with the target link.
 
-## 12. Important Details And Caveats
+
+## 12. Browser Operator UI
+
+The browser UI is a convenience wrapper around the same ZMQ messages used by `wind_controller.py` and `wind_status.py`.
+
+Run it from the host when you want to open the page directly in the host browser:
+
+```bash
+source /home/user/new/.venv/bin/activate
+cd ~/git/gz11
+python3 src/test/wind_operator_ui.py --listen-port 8090
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8090/
+```
+
+The UI fields do not change Gazebo until you click `Send`. The `Commands` value in the status panel should increase when the plugin receives the command.
+
+`Repeat` sends the current command again at the selected rate. For example, `1 Hz` means one command per second. This is useful because ZMQ PUB/SUB can miss an early message, but it does not make the ramp progress over time.
+
+The ramp is altitude-based:
+
+```text
+current altitude < ramp_start_altitude:  no wind
+between start and end:                   partial wind
+current altitude >= ramp_end_altitude:   full target wind
+```
+
+To apply full wind immediately, set:
+
+```text
+ramp_start_altitude = 0
+ramp_end_altitude   = 0
+```
+
+The UI also shows the tuning relationship:
+
+```text
+CdA = drag_coefficient * reference_area
+force = 0.5 * air_density * CdA * relative_speed^2
+```
+
+`max_force` is a clamp on the final applied force. If the formula calculates `120 N` and `max_force` is `80 N`, the plugin applies `80 N`.
+
+
+## 13. Important Details And Caveats
 
 This is a simple physical wind approximation, not a full atmospheric model.
 
@@ -406,7 +455,7 @@ It does not model:
 
 It is still useful because it physically pushes the vehicle in Gazebo, which lets you test controller behavior under a repeatable disturbance.
 
-## 13. Quick Troubleshooting
+## 14. Quick Troubleshooting
 
 If wind does not seem to affect the drone:
 
@@ -429,7 +478,7 @@ python3 src/test/wind_controller.py \
   --max-force 150
 ```
 
-## 14. Questions To Ask From Here
+## 15. Questions To Ask From Here
 
 Good follow-up questions:
 
