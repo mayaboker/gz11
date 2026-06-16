@@ -84,7 +84,13 @@ def send_command_long(command, *params):
     )
 
 
-def wait_command_ack(command, timeout=5):
+def ack_result_name(result):
+    enum = mavutil.mavlink.enums.get("MAV_RESULT", {})
+    entry = enum.get(result)
+    return entry.name if entry else str(result)
+
+
+def wait_command_ack(command, timeout=8, require_accepted=True):
     deadline = time.time() + timeout
     while time.time() < deadline:
         msg = master.recv_match(type=["COMMAND_ACK", "STATUSTEXT"], blocking=True, timeout=1)
@@ -96,8 +102,16 @@ def wait_command_ack(command, timeout=5):
                 print(f"STATUSTEXT: {text}")
             continue
         if msg.command == command:
-            print(f"ACK for command {command}: result={msg.result}")
+            result_name = ack_result_name(msg.result)
+            print(f"ACK for command {command}: result={msg.result} ({result_name})")
+            if require_accepted and msg.result != mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                raise RuntimeError(
+                    f"Command {command} was not accepted: {msg.result} ({result_name})"
+                )
             return msg
+
+    if require_accepted:
+        raise TimeoutError(f"Timed out waiting for ACK for command {command}")
     return None
 
 
@@ -188,32 +202,50 @@ def arm_vehicle():
     print("Vehicle ARMED!")
 
 def takeoff(altitude):
-    """Command vehicle to takeoff to specified altitude"""
+    """Command vehicle to takeoff to specified altitude."""
     print(f"Taking off to {altitude} meters...")
 
     send_command_long(mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, altitude)
     wait_command_ack(mavutil.mavlink.MAV_CMD_NAV_TAKEOFF)
 
-def get_altitude():
-    """Get current altitude"""
-    msg = master.recv_match(type="GLOBAL_POSITION_INT", blocking=True, timeout=3)
-    if msg:
-        return msg.relative_alt / 1000.0  # Convert mm to meters
-    return 0
 
-def wait_for_altitude(target_alt, tolerance=1.0):
-    """Wait until vehicle reaches target altitude"""
+def get_altitude_report():
+    """Return altitude from multiple MAVLink messages when available."""
+    global_pos = master.recv_match(type="GLOBAL_POSITION_INT", blocking=True, timeout=3)
+    relative_alt = None
+    if global_pos:
+        relative_alt = global_pos.relative_alt / 1000.0
+
+    vfr_hud = master.recv_match(type="VFR_HUD", blocking=False)
+    vfr_alt = getattr(vfr_hud, "alt", None) if vfr_hud else None
+
+    return relative_alt, vfr_alt
+
+
+def get_altitude():
+    """Get current relative altitude in meters."""
+    relative_alt, _ = get_altitude_report()
+    return relative_alt if relative_alt is not None else 0
+
+def wait_for_altitude(target_alt, tolerance=1.0, timeout=180):
+    """Wait until vehicle reaches target altitude."""
     print(f"Waiting to reach {target_alt}m (within {tolerance}m tolerance)...")
 
-    while True:
-        current_alt = get_altitude()
-        print(f"Current altitude: {current_alt:.1f}m / Target: {target_alt}m")
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        relative_alt, vfr_alt = get_altitude_report()
+        current_alt = relative_alt if relative_alt is not None else 0
+        vfr_text = f", VFR_HUD alt: {vfr_alt:.1f}m" if vfr_alt is not None else ""
+        print(f"Current relative altitude: {current_alt:.1f}m / Target: {target_alt}m{vfr_text}")
 
+        drain_status_text()
         if abs(current_alt - target_alt) < tolerance:
             print(f"Reached target altitude: {current_alt:.1f}m")
             break
 
         time.sleep(2)
+    else:
+        raise TimeoutError(f"Vehicle did not reach {target_alt}m within {timeout}s")
 
 def rtl():
     """Return to Launch"""
