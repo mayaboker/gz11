@@ -407,7 +407,7 @@ http://127.0.0.1:8090/
 
 The UI fields do not change Gazebo until you click `Send`. The `Commands` value in the status panel should increase when the plugin receives the command.
 
-`Repeat` sends the current command again at the selected rate. For example, `1 Hz` means one command per second. This is useful because ZMQ PUB/SUB can miss an early message, but it does not make the ramp progress over time.
+`Live` mode sends automatically while you change sliders or inputs. It is rate-limited so dragging a slider feels responsive without flooding Gazebo. `Send` is still available for one manual update.
 
 The ramp is altitude-based:
 

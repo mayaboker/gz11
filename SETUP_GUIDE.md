@@ -426,7 +426,7 @@ cd ~/git/gz11
 python3 src/test/wind_operator_ui.py --listen-port 8090
 ```
 
-Open `http://127.0.0.1:8090/`. Click `Send` after changing wind values. Use `Ramp start m = 0` and `Ramp end m = 0` to apply full wind immediately.
+Open `http://127.0.0.1:8090/`. Click `Send` after changing wind values, or enable `Live` to send automatically while moving sliders. Use `Ramp start m = 0` and `Ramp end m = 0` to apply full wind immediately.
 
 ---
 

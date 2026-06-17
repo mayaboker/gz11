@@ -64,6 +64,8 @@ section {
   padding: 14px;
 }
 h2 { margin: 0 0 12px; font-size: 15px; font-weight: 650; }
+.log-title { margin-top: 16px; justify-content: space-between; }
+.log-title h2 { margin: 0; }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field.full { grid-column: 1 / -1; }
@@ -207,14 +209,10 @@ small { color: var(--muted); }
         <label for="max-force">Max force clamp N</label>
         <input id="max-force" type="number" value="80" step="1">
       </div>
-      <div class="field">
-        <label for="rate">Repeat Hz</label>
-        <input id="rate" type="number" value="1" min="0.2" step="0.2">
-      </div>
     </div>
     <div class="row" style="margin-top: 14px;">
       <button id="send" class="primary">Send</button>
-      <button id="repeat" class="toggle">Repeat</button>
+      <button id="live" class="toggle">Live</button>
       <button id="calm" class="danger">Zero Wind</button>
     </div>
   </section>
@@ -230,13 +228,18 @@ small { color: var(--muted); }
       <div class="metric"><div class="label">CdA</div><div class="value"><span id="cda">--</span></div></div>
       <div class="metric"><div class="label">Commands</div><div class="value"><span id="commands">--</span></div></div>
     </div>
-    <h2 style="margin-top: 16px;">Log</h2>
+    <div class="row log-title">
+      <h2>Log</h2>
+      <button id="save-log">Save Log</button>
+    </div>
     <div id="log" class="log"></div>
   </section>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
-let repeatTimer = null;
+let liveMode = false;
+let liveTimer = null;
+let lastLiveLog = 0;
 
 function numberValue(id) {
   const raw = $(id).value;
@@ -268,7 +271,25 @@ function log(line) {
   box.scrollTop = box.scrollHeight;
 }
 
-async function sendCommand(payload = commandPayload()) {
+function logFilename() {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `wind_operator_log_${stamp}.txt`;
+}
+
+function saveLog() {
+  const content = $("log").textContent || "";
+  const blob = new Blob([content], {type: "text/plain;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = logFilename();
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function sendCommand(payload = commandPayload(), options = {}) {
   const response = await fetch("/api/command", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -276,40 +297,58 @@ async function sendCommand(payload = commandPayload()) {
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || "command failed");
-  log(`sent wind=${payload.speed_knots}kt dir=${payload.direction_deg}deg ramp=${payload.ramp_start_altitude}..${payload.ramp_end_altitude}m`);
+  if (!options.quiet) {
+    log(`sent wind=${payload.speed_knots}kt dir=${payload.direction_deg}deg ramp=${payload.ramp_start_altitude}..${payload.ramp_end_altitude}m`);
+  }
 }
 
-function updateRepeat() {
-  if (repeatTimer) {
-    clearInterval(repeatTimer);
-    repeatTimer = null;
-    $("repeat").classList.remove("active");
-    log("repeat stopped");
-    return;
-  }
-  const hz = Math.max(numberValue("rate") || 1, 0.1);
-  repeatTimer = setInterval(() => sendCommand().catch((err) => log(`error: ${err.message}`)), 1000 / hz);
-  $("repeat").classList.add("active");
-  sendCommand().catch((err) => log(`error: ${err.message}`));
-  log(`repeat started at ${hz} Hz`);
+function scheduleLiveSend() {
+  if (!liveMode) return;
+  clearTimeout(liveTimer);
+  liveTimer = setTimeout(() => {
+    sendCommand(commandPayload(), {quiet: true})
+      .then(() => {
+        const now = Date.now();
+        if (now - lastLiveLog > 1000) {
+          const p = commandPayload();
+          log(`live wind=${p.speed_knots}kt dir=${p.direction_deg}deg ramp=${p.ramp_start_altitude}..${p.ramp_end_altitude}m`);
+          lastLiveLog = now;
+        }
+      })
+      .catch((err) => log(`error: ${err.message}`));
+  }, 120);
+}
+
+function toggleLive() {
+  liveMode = !liveMode;
+  $("live").classList.toggle("active", liveMode);
+  log(liveMode ? "live mode on" : "live mode off");
+  if (liveMode) scheduleLiveSend();
 }
 
 function setDirection(value) {
   const normalized = ((Number(value) % 360) + 360) % 360;
   $("direction").value = normalized;
   $("direction-slider").value = normalized;
+  scheduleLiveSend();
 }
 
 function setWind(value) {
   const wind = Math.max(Number(value) || 0, 0);
   $("knots").value = wind;
   $("wind-slider").value = Math.min(wind, Number($("wind-slider").max));
+  scheduleLiveSend();
 }
 
 function updateCommandCda() {
   const drag = numberValue("drag") || 0;
   const area = numberValue("area") || 0;
   $("command-cda").textContent = (drag * area).toFixed(3);
+  scheduleLiveSend();
+}
+
+function handleCommandInput() {
+  scheduleLiveSend();
 }
 
 function fmt(value, digits = 1) {
@@ -341,7 +380,8 @@ async function pollStatus() {
 }
 
 $("send").addEventListener("click", () => sendCommand().catch((err) => log(`error: ${err.message}`)));
-$("repeat").addEventListener("click", updateRepeat);
+$("save-log").addEventListener("click", saveLog);
+$("live").addEventListener("click", toggleLive);
 $("calm").addEventListener("click", () => {
   setWind(0);
   sendCommand().catch((err) => log(`error: ${err.message}`));
@@ -350,8 +390,11 @@ $("knots").addEventListener("input", (event) => setWind(event.target.value));
 $("wind-slider").addEventListener("input", (event) => setWind(event.target.value));
 $("direction").addEventListener("input", (event) => setDirection(event.target.value));
 $("direction-slider").addEventListener("input", (event) => setDirection(event.target.value));
+$("ramp-start").addEventListener("input", handleCommandInput);
+$("ramp-end").addEventListener("input", handleCommandInput);
 $("drag").addEventListener("input", updateCommandCda);
 $("area").addEventListener("input", updateCommandCda);
+$("max-force").addEventListener("input", handleCommandInput);
 document.querySelectorAll("[data-dir]").forEach((button) => {
   button.addEventListener("click", () => setDirection(button.dataset.dir));
 });

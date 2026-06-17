@@ -166,7 +166,7 @@ http://127.0.0.1:8090/
 
 Wind controls:
 - click `Send` after changing values; editing fields alone does not update Gazebo
-- `Repeat` resends the same command at the selected rate, such as `1 Hz`; it does not animate the altitude ramp
+- `Live` sends automatically while you change sliders or inputs
 - `Ramp start m` and `Ramp end m` are altitude thresholds, not time thresholds
 - use `Ramp start m = 0` and `Ramp end m = 0` to apply full wind immediately
 - default tuning values are `drag_coefficient = 1.1`, `reference_area = 0.12 m2`, and `max_force = 80 N`
