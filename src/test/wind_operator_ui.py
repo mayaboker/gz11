@@ -2,13 +2,18 @@
 """Browser-based operator UI for WindForcePlugin."""
 import argparse
 import json
+import socketserver
 import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse
 
 import msgpack
 import zmq
+
+
+class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
+    daemon_threads = True
 
 
 INDEX_HTML = r"""<!doctype html>
