@@ -29,11 +29,13 @@ gazebo --verbose /workspace/src/ardupilot_gazebo/worlds/iris_arducopter_runway.w
 
 ```bash
 # On the host, start ArduPilot SITL with the Gazebo frame
+source /home/user/venv-ardupilot/bin/activate
+cd ~/git/ardupilot
 ./Tools/autotest/sim_vehicle.py -v ArduCopter -f gazebo-iris --console --map -w
 ```
 
 ```bash
-/workspace/src/build/camera2zmq /gazebo/default/iris_demo/iris_demo/gimbal_small_2d/tilt_link/camera/image tcp://*:5567 camera/image
+/workspace/src/build/camera2zmq /gazebo/default/iris_demo/iris_demo/gimbal_small_2d/tilt_link/camera/image tcp://*:5561 camera/image
 ```
 
 ```bash
@@ -166,10 +168,14 @@ http://127.0.0.1:8090/
 
 Wind controls:
 - click `Send` after changing values; editing fields alone does not update Gazebo
+- UI direction is a compass heading: `0=N`, `90=E`, `180=S`, `270=W`
 - `Live` sends automatically while you change sliders or inputs
 - `Ramp start m` and `Ramp end m` are altitude thresholds, not time thresholds
 - use `Ramp start m = 0` and `Ramp end m = 0` to apply full wind immediately
 - default tuning values are `drag_coefficient = 1.1`, `reference_area = 0.12 m2`, and `max_force = 80 N`
+- click `Record`, send wind commands as usual, then click `Stop` to save a JSON scenario file
+- if the native save dialog is unavailable, the UI saves under `/tmp/wind_scenarii/`; if the server save fails, the browser downloads the JSON
+- click `Play`; the native picker opens `/tmp/wind_scenarii/` by default, then the UI replays the recorded wind commands with their original timing. During playback, use `Pause`/`Resume` or `Stop`.
 - `CdA = drag_coefficient x reference_area`
 - force is `0.5 x air_density x CdA x relative_speed^2`, clamped by `max_force`
 

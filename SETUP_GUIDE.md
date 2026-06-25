@@ -201,7 +201,7 @@ Python script to autonomously arm, take off to 100m, hold for 5 minutes, and RTL
 Run ArduPilot SITL on the host:
 
 ```bash
-source /home/user/venv-ardupilot/activate
+source /home/user/venv-ardupilot/bin/activate
 cd ~/git/ardupilot
 ./Tools/autotest/sim_vehicle.py -v ArduCopter -f gazebo-iris --console --map -w
 ```

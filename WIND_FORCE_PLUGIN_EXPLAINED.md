@@ -407,7 +407,11 @@ http://127.0.0.1:8090/
 
 The UI fields do not change Gazebo until you click `Send`. The `Commands` value in the status panel should increase when the plugin receives the command.
 
+The UI uses compass headings: `0=N`, `90=E`, `180=S`, and `270=W`. Internally it converts those headings to the Gazebo world direction used by the plugin.
+
 `Live` mode sends automatically while you change sliders or inputs. It is rate-limited so dragging a slider feels responsive without flooding Gazebo. `Send` is still available for one manual update.
+
+`Record` captures every wind command that is sent by `Send`, `Live`, or `Zero Wind`. Click `Stop` to save the captured commands as a JSON scenario file. If the native save dialog is unavailable, the UI saves under `~/gz11/wind_scenarios/`; if the server save fails, the browser downloads the file instead. `Play` opens a file picker for that JSON file and replays the commands with the same timing.
 
 The ramp is altitude-based:
 
